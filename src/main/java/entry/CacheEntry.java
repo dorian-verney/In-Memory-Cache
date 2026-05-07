@@ -13,8 +13,6 @@ public class CacheEntry implements ExpirationPolicy
     private volatile long lastAccessTime;
     private int accessCount;
 
-    private Lock lock = new ReentrantLock();
-
     public CacheEntry(String key, String value, long ttlMillis, long createdAt)
     {
         this.key = key;
@@ -49,13 +47,9 @@ public class CacheEntry implements ExpirationPolicy
         return this.accessCount;
     }
 
-    public void recordAccess()
-    {
+    public synchronized void  recordAccess() {
         this.lastAccessTime = System.currentTimeMillis();
-
-        lock.lock();
         this.accessCount++;
-        lock.unlock();
     }
 
     public void onPut(String value, long ttlMillis)

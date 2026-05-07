@@ -14,17 +14,13 @@ public class ExpirationCleaner extends Thread
     public void subscribe(SubscriberTTL s) {subscriberTTLs.add(s);}
     public void unSubscribe(SubscriberTTL s) {subscriberTTLs.remove(s);}
 
-    public void notifyCleaning()
-    {
+    public void notifyCleaning() {
         for (SubscriberTTL s: this.subscriberTTLs)
-        {
             s.updateExpiration();
-        }
     }
 
     @Override
-    public void run()
-    {
+    public void run(){
         while (true)
         {
             notifyCleaning();

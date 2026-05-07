@@ -6,7 +6,7 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class LeastFrequentlyUsed implements ExclusionStrategies
+public class LeastFrequentlyUsed implements ExclusionStrategy
 {
 
     /** Exclude the least frequent used element from cache (LFU)

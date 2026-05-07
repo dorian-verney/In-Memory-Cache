@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import entry.CacheEntry;
 
-public class LeastRecentlyUsed implements ExclusionStrategies
+public class LeastRecentlyUsed implements ExclusionStrategy
 {
 
     /** Exclude the least recent used element from cache (LRU)

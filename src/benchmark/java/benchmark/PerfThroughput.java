@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
-@Threads(10)
+@Threads(50)
 @Warmup(iterations = 2)
 @Measurement(iterations = 3)
 public class PerfThroughput

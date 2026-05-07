@@ -31,13 +31,6 @@ public class CacheServer {
     }
 
     public void start(int port) throws IOException {
-        ServerSocket serverSocket = new ServerSocket(port);
-        System.out.println("Server started on port " + port);
-
-        while (true) {
-            Socket clientSocket = serverSocket.accept(); // bloque jusqu'à connexion
-            Thread thread = new Thread(new ClientHandler(clientSocket, dispatcher));
-            thread.start();
-        }
+        
     }
 }

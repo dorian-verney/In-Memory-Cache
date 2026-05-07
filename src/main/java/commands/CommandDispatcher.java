@@ -26,15 +26,5 @@ public class CommandDispatcher {
         if (command == null) return CommandResponse.error("ERROR unknown command: " + commandName);
 
         return command.execute(cache, args);
-
-//        // TODO
-//        if (response.isSuccess())
-//        {
-//            // TODO
-//            // response.getValue().ifPresent(val -> sendToClient(val.toString()));
-//        }
-//
-//        // logger, renvoyer l'erreur / sucess au client TCP...
-//        return response.getMessage();
     }
 }

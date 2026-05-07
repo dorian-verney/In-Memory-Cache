@@ -1,7 +1,7 @@
 package cache;
 
 import entry.CacheEntry;
-import exclusionPolicy.ExclusionStrategies;
+import exclusionPolicy.ExclusionStrategy;
 import expirationCleaner.SubscriberTTL;
 
 import java.util.NoSuchElementException;
@@ -12,7 +12,7 @@ public class CacheStore implements SubscriberTTL, Servable
 {
     private final int maxCapacity;
     private final ConcurrentHashMap<String, CacheEntry> cache = new ConcurrentHashMap<>();
-    private ExclusionStrategies exclusionStrategy;
+    private ExclusionStrategy exclusionStrategy;
 
     public CacheStore() {this.maxCapacity = 100;}
     public CacheStore(int maxCapacity) {this.maxCapacity = maxCapacity;}
@@ -26,7 +26,7 @@ public class CacheStore implements SubscriberTTL, Servable
     // -------------------------------------------------------------------------
     // Exclusion Principle (LRU, LFU, FIFO...)
     // -------------------------------------------------------------------------
-    public void setExclusionStrategy(ExclusionStrategies s){this.exclusionStrategy = s;}
+    public void setExclusionStrategy(ExclusionStrategy s){this.exclusionStrategy = s;}
     public void executeExclusion() {this.exclusionStrategy.excludeElement(this.cache);}
 
     // -------------------------------------------------------------------------
@@ -54,6 +54,8 @@ public class CacheStore implements SubscriberTTL, Servable
         CacheEntry entry = new CacheEntry(key, value, ttlMillis, System.currentTimeMillis());
         this.cache.putIfAbsent(key, entry);
 
+        IO.println(cache);
+
         return key;
     }
 
@@ -63,7 +65,9 @@ public class CacheStore implements SubscriberTTL, Servable
      */
     @Override
     public String get(String key) {
+        IO.println(cache);
         CacheEntry entry = this.cache.get(key);
+        IO.println(entry);
         if (entry == null) throw new NoSuchElementException("Storage does not contains " + key);
 
         // lazy expiration
