@@ -11,9 +11,14 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executors;
 
 public class NIOSelectorServer extends CacheServer
 {
+    private final Set<SelectionKey> inProgress = ConcurrentHashMap.newKeySet();
+
     public NIOSelectorServer()
     {
         super();
@@ -24,18 +29,17 @@ public class NIOSelectorServer extends CacheServer
     @Override
     public void start(int port) {
         try (var serverChannel = ServerSocketChannel.open();
-             var selector = Selector.open();) {
+             var selector = Selector.open();
+             var workers = Executors.newFixedThreadPool(2);) {
+            IO.println("Server listening to: " + port);
 
+            // INIT Server Channel
             serverChannel.bind(new InetSocketAddress(port));
             serverChannel.configureBlocking(false);
-
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
             Set<SelectionKey> keys;
             Iterator<SelectionKey> iter;
-
-            IO.println("Server listening to: " + port);
-
             while (running) {
                 if (selector.select() == 0){
                     continue;
@@ -47,64 +51,90 @@ public class NIOSelectorServer extends CacheServer
                     SelectionKey key = iter.next();
                     iter.remove(); // important !
 
-
                     // FIRST - ACCEPT client socket
-                    if (key.isAcceptable()) {
-                        if (key.channel() instanceof ServerSocketChannel channel) {
-                            var client = channel.accept();
-                            var socket = client.socket();
-                            var clientInfo = socket.getInetAddress().getHostAddress() + ":" + socket.getPort();
-                            IO.println("CONNECTED : " + clientInfo);
-
-                            client.configureBlocking(false);
-                            // each client has its own buffer
-                            client.register(selector, SelectionKey.OP_READ,
-                                    new ClientState(ByteBuffer.allocate(1024), new StringBuilder()));
-                        } else {
-                            throw new RuntimeException("Unknown channel");
-                        }
+                    if (key.isAcceptable())
+                        acceptClient(selector, key);
 
                     // SECOND - READ client socket
-                    } else {
-                        if (key.isReadable()) {
-                            if (key.channel() instanceof SocketChannel client) {
-                                var socket = client.socket();
-                                var clientInfo = socket.getInetAddress().getHostAddress() + ":" + socket.getPort();
-
-                                ClientState attach = (ClientState) key.attachment();
-                                var buffer = attach.buffer();
-                                var accumulator = attach.accumulator();
-                                var byteRead = client.read(buffer);
-
-                                if (byteRead == -1) {
-                                    IO.println("DECONNECTED : " + clientInfo);
-                                    socket.close();
+                    else if (key.isReadable()) {
+                        if (inProgress.add(key)) {
+                            key.interestOps(0); // Ensure that same client are not handle at same the time
+                            workers.execute(() -> {
+                                try {
+                                    readExecuteWriteClient(key);
+                                } finally {
+                                    inProgress.remove(key);
+                                    key.interestOps(SelectionKey.OP_READ);
+                                    selector.wakeup();
                                 }
-
-                                buffer.flip();
-                                var data = new String(buffer.array(), 0, byteRead);
-                                accumulator.append(data);
-                                buffer.clear(); // clear it for the next client
-
-                                if (data.endsWith(";")) {
-                                    var acc = accumulator.toString().replace(";", "");
-                                    var out = handleServerResponse(acc, clientInfo);
-                                    client.write(buffer.clear().put(out.getBytes()).flip());
-                                    accumulator.setLength(0);
-                                }
-                            } else {
-                                throw new RuntimeException("Unknown channel");
-                            }
+                            });
                         }
                     }
-
                 }
             }
-
         } catch (IOException e){
             throw new RuntimeException(e);
         }
     }
+
+    private void acceptClient(Selector selector, SelectionKey key){
+        try {
+            var channel = (ServerSocketChannel) key.channel();
+            var client = channel.accept();
+            var socket = client.socket();
+            var clientInfo = socket.getInetAddress().getHostAddress() + ":" + socket.getPort();
+            IO.println("CONNECTED : " + clientInfo);
+
+            client.configureBlocking(false);
+            // each client has its own buffer
+            client.register(selector, SelectionKey.OP_READ,
+                    new ClientState(ByteBuffer.allocate(1024), new StringBuilder()));
+
+        } catch (ClassCastException e){
+            throw new RuntimeException("Unknown channel " + e.getMessage());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void readExecuteWriteClient(SelectionKey key){
+        try {
+            if (!(key.channel() instanceof SocketChannel client)) {
+                return; // ignore ServerSocketChannel
+            }
+            var socket = client.socket();
+            var clientInfo = socket.getInetAddress().getHostAddress() + ":" + socket.getPort();
+
+            // READ from client
+            ClientState attach = (ClientState) key.attachment();
+            var buffer = attach.buffer();
+            var accumulator = attach.accumulator();
+            var byteRead = client.read(buffer);
+
+            if (byteRead == -1) {
+                IO.println("DECONNECTED : " + clientInfo);
+                socket.close();
+            }
+
+            // Append client data to accumulator
+            buffer.flip();
+            var data = new String(buffer.array(), 0, byteRead);
+            accumulator.append(data);
+            buffer.clear(); // clear it for the next client
+
+            if (data.endsWith(";")) {
+                var acc = accumulator.toString().replace(";", "");
+
+                // this can be the heaviest task
+                var out = handleServerResponse(acc, clientInfo);
+                client.write(buffer.clear().put(out.getBytes()).flip());
+                accumulator.setLength(0);
+            }
+        } catch (IOException e){
+            throw new RuntimeException(e);
+        }
+    }
+
 
     @Override
     public void stop(){
