@@ -1,112 +1,209 @@
 import cache.CacheStore;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
+import evictionPolicy.ExpirationCleaner;
+import evictionPolicy.LRUPolicy;
+import org.junit.jupiter.api.*;
 
+import java.util.List;
 import java.util.NoSuchElementException;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
-@DisplayName("Expiration Tests")
-public class ExpirationTest
-{
-    private CacheStore cacheStore;
+@DisplayName("Expiration")
+public class ExpirationTest {
+
+    private CacheStore cache;
 
     @BeforeEach
     void setUp() {
-        cacheStore = new CacheStore();
+        cache = new CacheStore(new LRUPolicy());
     }
 
     // -------------------------------------------------------------------------
-    // isExpired()
+    // CacheEntry.isExpired() — via CacheStore.getEntry()
     // -------------------------------------------------------------------------
 
     @Nested
     @DisplayName("isExpired()")
-    class Expiration {
+    class IsExpired {
 
         @Test
-        @DisplayName("A freshly inserted entry should not be expired")
-        void freshEntryShouldNotBeExpired() {
-            cacheStore.add("fresh", "value", 60_000);
-            assertFalse(cacheStore.getStorage().get("fresh").isExpired());
+        @DisplayName("A freshly inserted entry is not expired")
+        void freshEntryNotExpired() {
+            cache.add("k", "v", 5_000);
+            assertFalse(cache.getEntry("k").isExpired());
         }
 
         @Test
-        @DisplayName("An entry with TTL 0 should be immediately expired")
-        void zeroTtlShouldBeExpired() throws InterruptedException {
-            cacheStore.add("zero", "value", 0);
-            Thread.sleep(1); // ensure at least 1 ms has elapsed
-            assertTrue(cacheStore.getStorage().get("zero").isExpired());
+        @DisplayName("An entry with TTL 0 expires immediately")
+        void zeroTTLExpiresImmediately() throws InterruptedException {
+            cache.add("k", "v", 0);
+            Thread.sleep(1);
+            assertTrue(cache.getEntry("k").isExpired());
         }
 
         @Test
-        @DisplayName("An entry should be expired after its TTL elapses")
-        void entryShouldExpireAfterTTL() throws InterruptedException {
-            cacheStore.add("short", "value", 50);
-            Thread.sleep(100); // wait longer than TTL
-            assertTrue(cacheStore.getStorage().get("short").isExpired());
+        @DisplayName("An entry expires after its TTL elapses")
+        void entryExpiresAfterTTL() throws InterruptedException {
+            cache.add("k", "v", 50);
+            Thread.sleep(100);
+            assertTrue(cache.getEntry("k").isExpired());
         }
 
         @Test
-        @DisplayName("An entry should not be expired before its TTL elapses")
-        void entryShouldNotExpireBeforeTTL() {
-            cacheStore.add("long", "value", 60_000);
-            assertFalse(cacheStore.getStorage().get("long").isExpired());
+        @DisplayName("An entry with a long TTL is not yet expired")
+        void longTTLEntryNotExpired() {
+            cache.add("k", "v", 60_000);
+            assertFalse(cache.getEntry("k").isExpired());
         }
     }
 
-
     // -------------------------------------------------------------------------
-    // updateExpiration()
+    // Lazy eviction via get()
     // -------------------------------------------------------------------------
 
     @Nested
-    @DisplayName("updateExpiration()")
-    class UpdateExpiration {
+    @DisplayName("Lazy eviction via get()")
+    class LazyEviction {
 
         @Test
-        @DisplayName("Expired entries should be evicted by updateExpiration()")
-        void shouldEvictExpiredEntries() throws InterruptedException {
-            cacheStore.add("expired", "value", 50);
+        @DisplayName("get() throws and removes an expired entry")
+        void getThrowsForExpiredEntry() throws InterruptedException {
+            cache.add("k", "v", 50);
             Thread.sleep(100);
-            cacheStore.updateExpiration();
-            assertThrows(NoSuchElementException.class, () -> cacheStore.get("expired"));
+            assertThrows(NoSuchElementException.class, () -> cache.get("k"));
+            assertNull(cache.getEntry("k"));
         }
 
         @Test
-        @DisplayName("Valid entries should survive updateExpiration()")
-        void shouldKeepValidEntries() throws InterruptedException {
-            cacheStore.add("alive", "value", 60_000);
-            Thread.sleep(10);
-            cacheStore.updateExpiration();
-            assertEquals("value", cacheStore.get("alive"));
+        @DisplayName("get() succeeds for a live entry with a long TTL")
+        void getSucceedsForLiveEntry() {
+            cache.add("k", "v", 5_000);
+            assertEquals("v", cache.get("k"));
         }
 
         @Test
-        @DisplayName("Mixed entries: only expired ones should be removed")
-        void shouldEvictOnlyExpiredEntries() throws InterruptedException {
-            cacheStore.add("expired1", "a", 50);
-            cacheStore.add("expired2", "b", 50);
-            cacheStore.add("alive",    "c", 60_000);
-
+        @DisplayName("Mixed entries: live entries survive while expired ones are lazy-evicted")
+        void mixedEntriesLazyEviction() throws InterruptedException {
+            cache.add("exp", "a", 50);
+            cache.add("live", "b", 5_000);
             Thread.sleep(100);
-            cacheStore.updateExpiration();
 
-            assertThrows(NoSuchElementException.class, () -> cacheStore.get("expired1"));
-            assertThrows(NoSuchElementException.class, () -> cacheStore.get("expired2"));
-            assertEquals("c", cacheStore.get("alive"));
+            assertThrows(NoSuchElementException.class, () -> cache.get("exp"));
+            assertEquals("b", cache.get("live"));
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // evictExpired() — active / batch eviction
+    // -------------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("evictExpired()")
+    class EvictExpiredBatch {
+
+        @Test
+        @DisplayName("Expired entries in the sample are removed")
+        void removesExpiredEntriesInSample() throws InterruptedException {
+            cache.add("e1", "a", 50);
+            cache.add("e2", "b", 50);
+            Thread.sleep(100);
+
+            cache.evictExpired(List.of("e1", "e2"));
+
+            assertNull(cache.getEntry("e1"));
+            assertNull(cache.getEntry("e2"));
         }
 
         @Test
-        @DisplayName("updateExpiration() on an empty cache should not throw")
-        void shouldHandleEmptyCache() {
-            assertDoesNotThrow(() -> cacheStore.updateExpiration());
+        @DisplayName("Live entries in the sample are not removed")
+        void keepsLiveEntriesInSample() {
+            cache.add("k", "v", 5_000);
+            cache.evictExpired(List.of("k"));
+            assertNotNull(cache.getEntry("k"));
+        }
+
+        @Test
+        @DisplayName("Mixed sample: only expired entries are removed")
+        void mixedSampleOnlyExpiredRemoved() throws InterruptedException {
+            cache.add("exp", "a", 50);
+            cache.add("live", "b", 5_000);
+            Thread.sleep(100);
+
+            cache.evictExpired(List.of("exp", "live"));
+
+            assertNull(cache.getEntry("exp"));
+            assertNotNull(cache.getEntry("live"));
+        }
+
+        @Test
+        @DisplayName("Sample containing unknown keys does not throw")
+        void unknownKeysInSampleDoNotThrow() {
+            assertDoesNotThrow(() -> cache.evictExpired(List.of("ghost")));
+        }
+
+        @Test
+        @DisplayName("Empty sample does not throw")
+        void emptySampleDoesNotThrow() {
+            assertDoesNotThrow(() -> cache.evictExpired(List.of()));
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // ExpirationCleaner — background thread
+    // -------------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("ExpirationCleaner background thread")
+    class CleanerThread {
+
+        @Test
+        @DisplayName("Cleaner removes expired entries within its interval")
+        void cleanerRemovesExpiredEntries() throws InterruptedException {
+            // Fill the cache so the 20% sample is guaranteed to cover it
+            var large = new CacheStore(10, new LRUPolicy());
+            for (int i = 0; i < 10; i++) {
+                large.add("k" + i, "v", 50); // all expire in 50 ms
+            }
+
+            var cleaner = new ExpirationCleaner(large, 100);
+            var thread = new Thread(cleaner);
+            thread.start();
+
+            Thread.sleep(500); // allow several cleaner cycles
+            thread.interrupt();
+            thread.join(500);
+
+            long remaining = large.getCache().values().stream()
+                    .filter(e -> !e.isExpired())
+                    .count();
+            assertEquals(0, remaining, "All expired entries should have been cleaned up");
+        }
+
+        @Test
+        @DisplayName("Cleaner stops cleanly when interrupted")
+        void cleanerStopsOnInterrupt() throws InterruptedException {
+            var cleaner = new ExpirationCleaner(cache, 200);
+            var thread = new Thread(cleaner);
+            thread.start();
+            thread.interrupt();
+            thread.join(500);
+            assertFalse(thread.isAlive());
+        }
+
+        @Test
+        @DisplayName("Cleaner leaves live entries untouched")
+        void cleanerPreservesLiveEntries() throws InterruptedException {
+            cache.add("live", "v", 10_000);
+
+            var cleaner = new ExpirationCleaner(cache, 50);
+            var thread = new Thread(cleaner);
+            thread.start();
+
+            Thread.sleep(200);
+            thread.interrupt();
+            thread.join(500);
+
+            assertNotNull(cache.getEntry("live"));
         }
     }
 }
