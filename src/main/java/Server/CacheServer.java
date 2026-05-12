@@ -3,9 +3,9 @@ package Server;
 import cache.CacheStore;
 import commands.CommandDispatcher;
 import commands.CommandResponse;
-import exclusionPolicy.ExclusionStrategy;
-import exclusionPolicy.LeastRecentlyUsed;
-import expirationCleaner.ExpirationCleaner;
+import evictionPolicy.EvictionPolicy;
+import evictionPolicy.LFUPolicy;
+import evictionPolicy.ExpirationCleaner;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -37,19 +37,19 @@ public abstract class CacheServer {
         }
     }
 
-    public CacheServer()
-    {
-        // Eviction Strategy
-        ExclusionStrategy strategy = new LeastRecentlyUsed();
+    public CacheServer() {
 
-        // Expiration
-        ExpirationCleaner cleaner = new ExpirationCleaner(10_000);
+        int MAX_CAPACITY = 100;
+        int INTERVAL_MS  = 1000;
+        EvictionPolicy lru = new LFUPolicy();
 
         // Cache
-        CacheStore cache = new CacheStore(10000);
-        cache.setExclusionStrategy(strategy);
-        cleaner.subscribe(cache);
-//        cleaner.start();
+        CacheStore cache = new CacheStore(MAX_CAPACITY, lru);
+
+        // Cleaner
+        var thread = new Thread(new ExpirationCleaner(cache, INTERVAL_MS));
+        thread.setDaemon(true);
+        thread.start();
 
         // Dispatcher
         this.dispatcher = new CommandDispatcher(cache);

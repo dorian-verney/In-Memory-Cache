@@ -1,4 +1,4 @@
-package expirationCleaner;
+package evictionPolicy;
 
 public interface SubscriberTTL
 {

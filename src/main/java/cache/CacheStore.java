@@ -1,119 +1,115 @@
 package cache;
 
 import entry.CacheEntry;
-import exclusionPolicy.ExclusionStrategy;
-import expirationCleaner.SubscriberTTL;
+import evictionPolicy.EvictionPolicy;
 
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 
+public class CacheStore implements Servable {
 
-public class CacheStore implements SubscriberTTL, Servable
-{
     private final int maxCapacity;
-    private final ConcurrentHashMap<String, CacheEntry> cache = new ConcurrentHashMap<>();
-    private ExclusionStrategy exclusionStrategy;
+    private final ConcurrentHashMap<String, CacheEntry> cache;
+    private final EvictionPolicy policy;
 
-    public CacheStore() {this.maxCapacity = 100;}
-    public CacheStore(int maxCapacity) {this.maxCapacity = maxCapacity;}
-
-    // -------------------------------------------------------------------------
-    // Getter
-    // -------------------------------------------------------------------------
-    public int getMaxCapacity() {return this.maxCapacity;}
-    public ConcurrentHashMap<String, CacheEntry> getStorage() {return this.cache;}
-
-    // -------------------------------------------------------------------------
-    // Exclusion Principle (LRU, LFU, FIFO...)
-    // -------------------------------------------------------------------------
-    public void setExclusionStrategy(ExclusionStrategy s){this.exclusionStrategy = s;}
-    public void executeExclusion() {this.exclusionStrategy.excludeElement(this.cache);}
-
-    // -------------------------------------------------------------------------
-    // Expiration Principle of elements (TTL)
-    // -------------------------------------------------------------------------
-    @Override
-    public void updateExpiration()
-    {
-        this.cache.entrySet().removeIf(e -> e.getValue().isExpired());
+    public CacheStore(EvictionPolicy policy) {
+        maxCapacity = 100;
+        this.policy = policy;
+        cache = new ConcurrentHashMap<>(maxCapacity);
     }
+
+    public CacheStore(int maxCapacity, EvictionPolicy policy) {
+        this.maxCapacity = maxCapacity;
+        this.policy = policy;
+        cache = new ConcurrentHashMap<>(maxCapacity);
+    }
+
+    public ConcurrentHashMap<String, CacheEntry> getCache(){
+        return cache;
+    }
+
+    // -------------------------------------------------------------------------
+    // Expiration eviction
+    // -------------------------------------------------------------------------
+    public synchronized void evictExpired(List<String> sample) {
+
+        for (String e : sample){
+            var entry = cache.get(e);
+            if (entry != null && entry.isExpired()) {
+                cache.remove(e);
+                policy.onRemove(e);
+            }
+        }
+    }
+
 
     // -------------------------------------------------------------------------
     // Servable
     // -------------------------------------------------------------------------
-    /**
-     * @param key
-     * @param value
-     * @param ttlMillis
-     * @return
-     */
     @Override
-    public String add(String key, String value, long ttlMillis) {
-        if (this.cache.size() == this.maxCapacity) {this.executeExclusion();}
-
-        CacheEntry entry = new CacheEntry(key, value, ttlMillis, System.currentTimeMillis());
-        this.cache.putIfAbsent(key, entry);
-
-        IO.println(cache);
+    public synchronized String add(String key, String value, long ttlMillis) {
+        if (cache.size() == maxCapacity) {
+            var evicted = policy.evict();
+            cache.remove(evicted);
+        }
+        var entry = new CacheEntry(key, value, ttlMillis);
+        if (cache.putIfAbsent(key, entry) == null)
+            policy.onInsert(key);
 
         return key;
     }
 
-    /**
-     * @param key
-     * @return
-     */
     @Override
-    public String get(String key) {
-        IO.println(cache);
-        CacheEntry entry = this.cache.get(key);
-        IO.println(entry);
-        if (entry == null) throw new NoSuchElementException("Storage does not contains " + key);
+    public synchronized String get(String key) {
+        var entry = cache.get(key);
+
+        if (entry == null)
+            throw new NoSuchElementException("Storage does not contains " + key);
 
         // lazy expiration
         if (entry.isExpired()) {
             cache.remove(key);
+            policy.onRemove(key);
             throw new NoSuchElementException("Storage does not contains " + key);
         }
         entry.recordAccess();
         return entry.getValue();
     }
 
-    /**
-     * @param key
-     * @param value
-     * @param ttlMillis
-     * @return
-     */
     @Override
-    public String set(String key, String value, long ttlMillis) {
-        if (!this.cache.containsKey(key)) throw new NoSuchElementException("Storage does not contains " + key);
+    public synchronized String set(String key, String value, long ttlMillis) {
+        if (!cache.containsKey(key))
+            throw new NoSuchElementException("Storage does not contains " + key);
 
-        CacheEntry entry = this.cache.get(key);
+        var entry = cache.get(key);
         entry.onPut(value, ttlMillis);
-        this.cache.put(key, entry);
+        cache.put(key, entry);
+        policy.onAccess(key);
         return key;
     }
 
-    /**
-     * @param key
-     * @return
-     */
+
     @Override
-    public String del(String key) {
-        CacheEntry res = this.cache.remove(key);
-        if (res == null) {throw new NoSuchElementException("Storage does not contains " + key);}
+    public synchronized String del(String key) {
+        var res = cache.remove(key);
+        if (res == null)
+            throw new NoSuchElementException("Storage does not contains " + key);
 
+        policy.onRemove(key);
         return key;
     }
+
+
     // -------------------------------------------------------------------------
     // Others
     // -------------------------------------------------------------------------
-
-    public CacheEntry getEntry(String key){return this.cache.get(key);}
+    public synchronized CacheEntry getEntry(String key) {
+        return cache.get(key);
+    }
 
     public void printStorage(){
-        this.cache.values().forEach(IO::println);
+        cache.values().forEach(IO::println);
     }
 
 

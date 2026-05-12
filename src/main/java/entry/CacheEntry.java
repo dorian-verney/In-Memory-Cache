@@ -11,16 +11,13 @@ public class CacheEntry implements ExpirationPolicy
     private volatile long ttlMillis;
     private long createdAt;
     private volatile long lastAccessTime;
-    private int accessCount;
 
-    public CacheEntry(String key, String value, long ttlMillis, long createdAt)
-    {
+    public CacheEntry(String key, String value, long ttlMillis) {
         this.key = key;
         this.value = value;
         this.ttlMillis = ttlMillis;
-        this.createdAt = createdAt;
-        this.lastAccessTime = createdAt;
-        this.accessCount = 0;
+        createdAt = System.currentTimeMillis();
+        lastAccessTime = createdAt;
     }
 
     public String getKey() {
@@ -43,21 +40,15 @@ public class CacheEntry implements ExpirationPolicy
         return this.lastAccessTime;
     }
 
-    public int getAccessCount() {
-        return this.accessCount;
+    public synchronized void recordAccess() {
+        lastAccessTime = System.currentTimeMillis();
     }
 
-    public synchronized void  recordAccess() {
-        this.lastAccessTime = System.currentTimeMillis();
-        this.accessCount++;
-    }
-
-    public void onPut(String value, long ttlMillis)
-    {
-        this.createdAt = System.currentTimeMillis();
+    public void onPut(String value, long ttlMillis) {
+        createdAt = System.currentTimeMillis();
         this.value = value;
         this.ttlMillis = ttlMillis;
-        this.recordAccess();
+        lastAccessTime = createdAt;
     }
 
     @Override
