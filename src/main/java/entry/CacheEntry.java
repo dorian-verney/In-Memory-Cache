@@ -1,21 +1,32 @@
 package entry;
 
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
-public class CacheEntry implements ExpirationPolicy
+public class CacheEntry
 {
     private final String key;
-
     private volatile String value;
-    private volatile long ttlMillis;
-    private long createdAt;
+
+    private volatile boolean expire = false;
+    private volatile long ttlSec;
+
+    private volatile long createdAt;
     private volatile long lastAccessTime;
 
-    public CacheEntry(String key, String value, long ttlMillis) {
+    public CacheEntry(String key, String value){
         this.key = key;
         this.value = value;
-        this.ttlMillis = ttlMillis;
+        initTimeCreation();
+    }
+
+    public CacheEntry(String key, String value, long ttlSec) {
+        this(key, value);
+        if (ttlSec != -1) {
+            expire = true;
+        }
+        this.ttlSec = ttlSec;
+    }
+
+    public void initTimeCreation(){
         createdAt = System.currentTimeMillis();
         lastAccessTime = createdAt;
     }
@@ -29,7 +40,16 @@ public class CacheEntry implements ExpirationPolicy
     }
 
     public long getTTL() {
-        return this.ttlMillis;
+        if (!expire) return -1;
+        return this.ttlSec;
+    }
+
+    public void setTTL(long ttlSec){
+        this.ttlSec = ttlSec;
+    }
+
+    public void setExpire(boolean expire){
+        this.expire = expire;
     }
 
     public long getCreatedAt() {
@@ -44,21 +64,22 @@ public class CacheEntry implements ExpirationPolicy
         lastAccessTime = System.currentTimeMillis();
     }
 
-    public void onPut(String value, long ttlMillis) {
+    public void onSet(String value, long ttlSec) {
         createdAt = System.currentTimeMillis();
         this.value = value;
-        this.ttlMillis = ttlMillis;
+        if (ttlSec != -1) {
+            this.ttlSec = ttlSec;
+            expire = true;
+        }
         lastAccessTime = createdAt;
     }
 
-    @Override
     public boolean isExpired() {
-        return this.ttlMillis < (System.currentTimeMillis() -  this.createdAt);
+        return expire && (this.ttlSec < ((System.currentTimeMillis()/1000) -  this.createdAt));
     }
-
 
     public String toString()
     {
-        return "(" + this.key + ", " + this.value + ", " + this.ttlMillis + ")";
+        return "(" + this.key + ", " + this.value + ", " + this.ttlSec + ")";
     }
 }

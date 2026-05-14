@@ -23,6 +23,8 @@ public abstract class CacheServer {
 
     protected ServerSocket serverSocket;
 
+    private CacheStore cache;
+
     protected static Logger logger = Logger.getLogger("Server");
 
     static {
@@ -44,7 +46,7 @@ public abstract class CacheServer {
         EvictionPolicy lru = new LFUPolicy();
 
         // Cache
-        CacheStore cache = new CacheStore(MAX_CAPACITY, lru);
+        cache = new CacheStore(MAX_CAPACITY, lru);
 
         // Cleaner
         var thread = new Thread(new ExpirationCleaner(cache, INTERVAL_MS));
@@ -79,6 +81,7 @@ public abstract class CacheServer {
 
                 var out = handleServerResponse(sb.toString(), clientInfo);
                 writer.println(out);
+                cache.printStorage();
             }
             logger.info(name + clientInfo + " closed");
         } catch (IOException e){

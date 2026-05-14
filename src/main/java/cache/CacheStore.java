@@ -47,16 +47,26 @@ public class CacheStore implements Servable {
     // -------------------------------------------------------------------------
     // Servable
     // -------------------------------------------------------------------------
-    @Override
-    public synchronized String add(String key, String value, long ttlMillis) {
-        if (cache.size() == maxCapacity) {
-            var evicted = policy.evict();
-            cache.remove(evicted);
-        }
-        var entry = new CacheEntry(key, value, ttlMillis);
-        if (cache.putIfAbsent(key, entry) == null)
-            policy.onInsert(key);
 
+    @Override
+    public synchronized String set(String key, String value, long ttlSec) {
+        if (!cache.containsKey(key)) {
+            // add it
+            if (cache.size() == maxCapacity) {
+                var evicted = policy.evict();
+                cache.remove(evicted);
+            }
+            var entry = new CacheEntry(key, value, ttlSec);
+            if (cache.putIfAbsent(key, entry) == null)
+                policy.onInsert(key);
+
+            return key;
+        }
+
+        var entry = cache.get(key);
+        entry.onSet(value, ttlSec);
+        cache.put(key, entry);
+        policy.onAccess(key);
         return key;
     }
 
@@ -65,41 +75,47 @@ public class CacheStore implements Servable {
         var entry = cache.get(key);
 
         if (entry == null)
-            throw new NoSuchElementException("Storage does not contains " + key);
+            throw new NoSuchElementException("Cache does not contains " + key);
 
         // lazy expiration
         if (entry.isExpired()) {
             cache.remove(key);
             policy.onRemove(key);
-            throw new NoSuchElementException("Storage does not contains " + key);
+            throw new NoSuchElementException("Cache does not contains " + key);
         }
         entry.recordAccess();
         return entry.getValue();
     }
 
     @Override
-    public synchronized String set(String key, String value, long ttlMillis) {
-        if (!cache.containsKey(key))
-            throw new NoSuchElementException("Storage does not contains " + key);
-
-        var entry = cache.get(key);
-        entry.onPut(value, ttlMillis);
-        cache.put(key, entry);
-        policy.onAccess(key);
-        return key;
-    }
-
-
-    @Override
     public synchronized String del(String key) {
         var res = cache.remove(key);
         if (res == null)
-            throw new NoSuchElementException("Storage does not contains " + key);
+            return null;
 
         policy.onRemove(key);
         return key;
     }
 
+    @Override
+    public synchronized String ttl(String key) {
+        var res = cache.get(key);
+        if (res == null) {
+            throw new NoSuchElementException("Cache does not contains " + key);
+        }
+        return String.valueOf(res.getTTL());
+    }
+
+    @Override
+    public synchronized String expire(String key, long ttlSec) {
+        var res = cache.get(key);
+        if (res == null) {
+            throw new NoSuchElementException("Cache does not contains " + key);
+        }
+        res.setExpire(true);
+        res.setTTL(ttlSec);
+        return String.valueOf(ttlSec);
+    }
 
     // -------------------------------------------------------------------------
     // Others

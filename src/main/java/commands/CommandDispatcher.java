@@ -1,6 +1,7 @@
 package commands;
 
 import cache.CacheStore;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -12,10 +13,11 @@ public class CommandDispatcher {
 
     public CommandDispatcher(CacheStore cache) {
         this.cache = cache;
-        commands.put("ADD", new AddCommand());
-        commands.put("GET", new GetCommand());
         commands.put("SET", new SetCommand());
+        commands.put("GET", new GetCommand());
         commands.put("DEL", new DeleteCommand());
+        commands.put("TTL", new TTLCommand());
+        commands.put("EXPIRE", new ExpireCommand());
     }
 
     public CommandResponse dispatch(String input) {

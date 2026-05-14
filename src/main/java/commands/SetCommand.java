@@ -1,46 +1,51 @@
 package commands;
 
 import cache.CacheStore;
+import org.apache.commons.cli.*;
 
-public class SetCommand implements Command
-{
+public class SetCommand implements AdvancedCommand {
 
-    /**
-     * @param args
-     * @return
-     */
+    private static final int MIN_ARGS = 3;
+
     @Override
-    public boolean isValid(String[] args) {
-        if (args.length != 4)
-            return false;
-        try {
-            Long.parseLong(args[3]);
-        } catch (NumberFormatException e) {
-            return false;
-        }
-        return true;
+    public String[] parseCmd(String[] args) throws ParseException {
+        Options options = new Options();
+        options.addOption("EX", "EXPIRATION", true, "set expiration in seconds");
+        CommandLineParser parser = new DefaultParser();
+        CommandLine cmdLine = parser.parse(options, args);
+        String[] cmd = new String[1];
+        String res = cmdLine.getOptionValue("EX");
+        cmd[0] = res;
+        return cmd;
     }
 
-    /**
-     * @param cache
-     * @param args
-     * @return
-     */
+    private long parseTTL(String[] args) throws ParseException {
+        String[] options = parseCmd(args);
+        if (options[0] == null) return -1;
+        long ttl = Long.parseLong(options[0]);
+        if (ttl <= 0) throw new IllegalArgumentException("EX must be a positive integer");
+        return ttl;
+    }
+
+
     @Override
     public CommandResponse execute(CacheStore cache, String[] args) {
-        if (! this.isValid(args)){
-            return CommandResponse.error("ERROR invalid args for Set Command");}
+        if (args.length < MIN_ARGS)
+            return CommandResponse.error("ERROR: invalid number of args (Min. SET key value)");
 
-        String key = args[1];
-        String value = args[2];
-        long ttl = Long.parseLong(args[3]);
-
+        long ttl;
         try {
-            cache.set(key, value, ttl);
-        } catch (Exception e) {
-            return CommandResponse.error("ERROR Exception " + e.toString() + " for Set Command");
+            ttl = parseTTL(args);
+        } catch (ParseException | IllegalArgumentException e) {
+            return CommandResponse.error("ERROR invalid args: " + e.getMessage());
         }
 
-        return CommandResponse.success(key);
+        try {
+            cache.set(args[1], args[2], ttl);
+        } catch (Exception e) {
+            return CommandResponse.error("ERROR Exception " + e.getMessage());
+        }
+
+        return CommandResponse.success(args[0]);
     }
 }

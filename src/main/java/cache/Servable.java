@@ -2,11 +2,13 @@ package cache;
 
 public interface Servable
 {
-    String add(String key, String value, long ttlMillis);
-
     String get(String key);
 
-    String set(String key, String value, long ttlMillis);
+    String set(String key, String value, long ttlSec);
 
     String del(String key);
+
+    String ttl(String key);
+
+    String expire(String key, long ttlSec);
 }

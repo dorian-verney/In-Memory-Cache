@@ -2,8 +2,7 @@ package commands;
 
 import cache.CacheStore;
 
-public interface Command
-{
-    boolean isValid(String[] args);
+public interface Command {
     CommandResponse execute(CacheStore cache, String[] args);
+
 }

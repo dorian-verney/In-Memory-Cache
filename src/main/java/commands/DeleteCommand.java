@@ -2,35 +2,28 @@ package commands;
 
 import cache.CacheStore;
 
-public class DeleteCommand implements Command
-{
-    /**
-     * @param args
-     * @return
-     */
-    @Override
-    public boolean isValid(String[] args)
-    {
-        return (args.length == 2);
-    }
+import java.util.Arrays;
 
-    /**
-     * @param cache
-     * @param args
-     * @return
-     */
+public class DeleteCommand implements Command {
+    private static final int MIN_ARGS = 2;
+
     @Override
     public CommandResponse execute(CacheStore cache, String[] args) {
-        if (! this.isValid(args)){
-            return CommandResponse.error("ERROR invalid args for Delete Command");}
+        if (args.length < MIN_ARGS)
+            return CommandResponse.error("ERROR: invalid number of args (Min. DEL key)");
 
-        String key = args[1];
-        try {
-            cache.del(key);
-        } catch (Exception e) {
-            return CommandResponse.error("ERROR Exception " + e.toString() + " for Delete Command");
+        // can be DEL key1 key2 key3 ...
+        int numDel = 0;
+        for (String key : Arrays.asList(args).subList(1, args.length)){
+            try {
+                var res = cache.del(key);
+                if (res != null)
+                    numDel++;
+            } catch (Exception e) {
+                return CommandResponse.error("ERROR Exception " + e.getMessage());
+            }
         }
 
-        return CommandResponse.success(key);
+        return CommandResponse.success(String.valueOf("(integer) " + numDel));
     }
 }
