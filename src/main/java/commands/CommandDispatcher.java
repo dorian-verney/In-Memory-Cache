@@ -30,6 +30,7 @@ public class CommandDispatcher {
         pubSubCommands.put("SUB", new SubscribeCommand());
         pubSubCommands.put("UNSUB", new UnSubscribeCommand());
         pubSubCommands.put("PUBSUB NUMSUB", new NumSubCommand());
+        pubSubCommands.put("PUBSUB CHANNELS", new ChannelCommand());
     }
 
     public CommandResponse dispatch(String input){

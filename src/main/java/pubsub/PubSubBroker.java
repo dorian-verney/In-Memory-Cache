@@ -39,6 +39,9 @@ public class PubSubBroker {
         var subs = channelToSubscribers.get(channel);
         if (subs != null) subs.remove(subscribers.get(clientId));
 
+        if (channelToSubscribers.get(channel).isEmpty())
+            channelToSubscribers.remove(channel);
+
         logger.info("%s UNSUBSCRIBE to channel %s".formatted(clientId, channel));
         return subscribers.get(clientId).getChannels().size();
     }
@@ -49,9 +52,12 @@ public class PubSubBroker {
         var channels = sub.getChannels();
         for (String channel : channels){
             channelToSubscribers.get(channel).remove(sub);
+            if (channelToSubscribers.get(channel).isEmpty())
+                channelToSubscribers.remove(channel);
         }
         sub.unSubscriberAll();
         subscribers.remove(clientId);
+
 
         logger.info("%s UNSUBSCRIBE to all its channels %s".formatted(clientId, channels));
 
@@ -67,6 +73,10 @@ public class PubSubBroker {
                 logger.info("PUBLISH %s to channel %s".formatted(message.payload(), message.channel()));
             }
         return subs.size();
+    }
+
+    public List<String> getChannels(){
+        return new ArrayList<>(channelToSubscribers.keySet());
     }
 
     public HashMap<String, Integer> numSub(List<String> channels){

@@ -24,6 +24,7 @@ public class Listening implements State {
                     if (incoming.equalsIgnoreCase("unsubscribed")){
                         break;
                     }
+                    IO.println("Response : " + incoming);
 //                    if (allowedCmd.contains(incoming.toUpperCase())) break;
                 }
             } catch (IOException e) {

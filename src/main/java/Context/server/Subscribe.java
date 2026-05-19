@@ -26,8 +26,7 @@ public class Subscribe implements State {
             while (true) {
                 // POLLING QUEUE
                 String msg = context.getDispatcher().getBroker()
-                                .poll(SessionContext.get(), 500);
-                logger.info("IN LISTENING mode : %s".formatted(msg));
+                                .poll(SessionContext.get(), 200);
 
                 if (msg != null) {
                     context.getWriter().println(msg);
@@ -50,6 +49,7 @@ public class Subscribe implements State {
 
                     CommandResponse response = context.getDispatcher().dispatch(sb.toString());
                     if (response.getResponseType() == ResponseType.NORMAL) {
+                        IO.println("UNNNNSBBSB");
                         context.getWriter().println("Unsubscribed " + response.getMessage());
                         context.changeState(new Normal(context));
                         context.handle();

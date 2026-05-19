@@ -29,7 +29,11 @@ public class CommandResponse {
     }
 
     public static CommandResponse success(HashMap<String, Integer> map) {
-        return new CommandResponse(ResponseType.NORMAL,true, map.toString(), null);
+        return new CommandResponse(ResponseType.NORMAL,true,  map.toString(), null);
+    }
+
+    public static CommandResponse success(List<String> arr) {
+        return new CommandResponse(ResponseType.NORMAL,true,  arr.toString(), null);
     }
 
     public static CommandResponse error(String message) {
