@@ -1,6 +1,7 @@
 package Server.ClientStrategy;
 
 import Server.CacheServer;
+import commands.CommandResponse;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -132,6 +133,20 @@ public class NIOSelectorServer extends CacheServer
             }
         } catch (IOException e){
             throw new RuntimeException(e);
+        }
+    }
+
+
+    protected String handleServerResponse(String userCmd, String clientInfo){
+        String name = "[Server] [" + Thread.currentThread().getName() + "] ";
+        // Handle real command from client
+        CommandResponse response = dispatcher.dispatch(userCmd);
+        logger.info(name + clientInfo + "; Response : " + response.getMessage());
+        if (!response.isSuccess()) {
+            return response.getMessage();
+        } else {
+            return "OK " + response.getMessage() + " " +
+                    response.getValue().map(v -> " " + v).orElse("");
         }
     }
 

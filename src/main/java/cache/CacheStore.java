@@ -1,6 +1,5 @@
 package cache;
 
-import entry.CacheEntry;
 import evictionPolicy.EvictionPolicy;
 
 import java.util.List;

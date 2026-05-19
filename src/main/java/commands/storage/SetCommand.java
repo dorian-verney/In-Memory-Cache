@@ -1,6 +1,7 @@
-package commands;
+package commands.storage;
 
 import cache.CacheStore;
+import commands.CommandResponse;
 import org.apache.commons.cli.*;
 
 public class SetCommand implements AdvancedCommand {

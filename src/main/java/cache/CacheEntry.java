@@ -1,4 +1,4 @@
-package entry;
+package cache;
 
 
 public class CacheEntry

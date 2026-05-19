@@ -1,11 +1,15 @@
 package Server;
 
+import Context.client.SessionContext;
+import Context.server.ConnectionContext;
 import cache.CacheStore;
 import commands.CommandDispatcher;
 import commands.CommandResponse;
-import evictionPolicy.EvictionPolicy;
-import evictionPolicy.LFUPolicy;
+import commands.ResponseType;
 import evictionPolicy.ExpirationCleaner;
+import evictionPolicy.LRUPolicy;
+import pubsub.PubSubBroker;
+import utils.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -13,48 +17,39 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.logging.FileHandler;
 import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
+
+import java.util.UUID;
 
 public abstract class CacheServer {
-    protected final CommandDispatcher dispatcher;
+
+    private static final int STORE_CAPACITY = 100;
+    private static final int CLEANER_INTERVAL_MS = 1000;
+
     protected volatile boolean running = true;
 
     protected ServerSocket serverSocket;
 
     private CacheStore cache;
+    private final PubSubBroker broker;
+    protected final CommandDispatcher dispatcher;
 
-    protected static Logger logger = Logger.getLogger("Server");
+    private ConnectionContext context;
 
-    static {
-        try {
-            new java.io.File("logs").mkdirs();
-            var fh = new FileHandler("logs/server.log", true);
-            fh.setFormatter(new SimpleFormatter());
-            logger.setUseParentHandlers(false);
-            logger.addHandler(fh);
-        } catch (IOException e) {
-            System.err.println("Logger setup failed: " + e.getMessage());
-        }
-    }
+    protected static Logger logger = LoggerFactory.create(CacheServer.class, "server.log");
+
 
     public CacheServer() {
 
-        int MAX_CAPACITY = 100;
-        int INTERVAL_MS  = 1000;
-        EvictionPolicy lru = new LFUPolicy();
-
-        // Cache
-        cache = new CacheStore(MAX_CAPACITY, lru);
+        this.cache = new CacheStore(STORE_CAPACITY,new LRUPolicy());
+        this.broker = new PubSubBroker();
+        this.dispatcher = new CommandDispatcher(cache, broker);
 
         // Cleaner
-        var thread = new Thread(new ExpirationCleaner(cache, INTERVAL_MS));
+        var thread = new Thread(new ExpirationCleaner(cache, CLEANER_INTERVAL_MS));
         thread.setDaemon(true);
         thread.start();
 
-        // Dispatcher
-        this.dispatcher = new CommandDispatcher(cache);
     }
 
     public abstract void start(int port);
@@ -62,43 +57,21 @@ public abstract class CacheServer {
     public abstract void stop();
 
     protected void handleNewConnection(Socket clientSocket){
-        var clientInfo = clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort();
         String name = "[Server] [" + Thread.currentThread().getName() + "] ";
+        var clientID = UUID.randomUUID().toString();
+        var clientInfo = clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort();
+        SessionContext.set(clientID);
         try (var clientIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
              var writer = new PrintWriter(clientSocket.getOutputStream(), true)) {
 
-            listening:
-            while (true){
-                var sb = new StringBuilder();
-                String in;
-                do {
-                    in = clientIn.readLine();
-                    if (in == null || in.equals("QUIT")) break listening;
+            context = new ConnectionContext(clientIn, writer, dispatcher, clientID, clientInfo);
+            context.handle();
 
-                    sb.append(in.replace(";", ""));
-                    IO.println(sb);
-                } while (!in.endsWith(";"));
-
-                var out = handleServerResponse(sb.toString(), clientInfo);
-                writer.println(out);
-                cache.printStorage();
-            }
-            logger.info(name + clientInfo + " closed");
         } catch (IOException e){
             throw new RuntimeException(e);
-        }
-    }
-
-    protected String handleServerResponse(String userCmd, String clientInfo){
-        String name = "[Server] [" + Thread.currentThread().getName() + "] ";
-        // Handle real command from client
-        CommandResponse response = dispatcher.dispatch(userCmd);
-        logger.info(name + clientInfo + "; Response : " + response.getMessage());
-        if (!response.isSuccess()) {
-            return response.getMessage();
-        } else {
-            return "OK " + response.getMessage() + " " +
-                    response.getValue().map(v -> " " + v).orElse("");
+        } finally {
+            logger.info(name + clientInfo + " closed");
+            SessionContext.clear();
         }
     }
 

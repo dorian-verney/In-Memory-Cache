@@ -1,10 +1,11 @@
-package commands;
+package commands.storage;
 
 import cache.CacheStore;
+import commands.CommandResponse;
 
 import java.util.Arrays;
 
-public class DeleteCommand implements Command {
+public class DeleteCommand implements BasicCommand {
     private static final int MIN_ARGS = 2;
 
     @Override

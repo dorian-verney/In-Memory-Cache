@@ -1,8 +1,9 @@
-package commands;
+package commands.storage;
 
 import cache.CacheStore;
+import commands.CommandResponse;
 
-public class ExpireCommand implements Command {
+public class ExpireCommand implements BasicCommand {
 
     private static final int MIN_ARGS = 3;
 

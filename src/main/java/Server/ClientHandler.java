@@ -1,5 +1,8 @@
 package Server;
 
+import Context.client.SessionContext;
+import utils.LoggerFactory;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -9,9 +12,14 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.Scanner;
+import java.util.logging.Logger;
 
 public class ClientHandler {
+    private static final Logger logger = LoggerFactory.create(ClientHandler.class, "clientHandler.log");
+
+    private SessionContext clientContext;
     private final Scanner scanner;
+
     public ClientHandler(Scanner scanner){
         this.scanner = scanner;
     }
@@ -23,28 +31,15 @@ public class ClientHandler {
              var writer = new PrintWriter(socket.getOutputStream(), true)) {
             IO.println("Connection established with port:" + port);
 
-            String userIn;
-            String serverRes;
-            while (true) {
-                userIn = scanner.nextLine();
-                if (userIn.equalsIgnoreCase("q")) {
-                    writer.println("QUIT");
-                    break;
-                }
-                // WRITE data to server
-                writer.println(userIn);
-
-                // READ data from server
-                if (userIn.endsWith(";")) {
-                    serverRes = reader.readLine();
-                    IO.println("response : " + serverRes);
-                }
-            }
+            var info = socket.getLocalAddress().getHostAddress()+":"+socket.getLocalPort();
+            clientContext = new SessionContext(reader, writer, scanner, info);
+            clientContext.handle();
 
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
+
 
     public void startNIO(int port){
         try (var serverChannel = SocketChannel.open()) {
