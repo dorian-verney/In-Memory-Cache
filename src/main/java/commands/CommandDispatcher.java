@@ -1,10 +1,7 @@
 package commands;
 
 import cache.CacheStore;
-import commands.pubsub.PubSubCommand;
-import commands.pubsub.PublishCommand;
-import commands.pubsub.SubscribeCommand;
-import commands.pubsub.UnSubscribeCommand;
+import commands.pubsub.*;
 import commands.storage.*;
 import pubsub.PubSubBroker;
 
@@ -32,6 +29,7 @@ public class CommandDispatcher {
         pubSubCommands.put("PUB", new PublishCommand());
         pubSubCommands.put("SUB", new SubscribeCommand());
         pubSubCommands.put("UNSUB", new UnSubscribeCommand());
+        pubSubCommands.put("PUBSUB NUMSUB", new NumSubCommand());
     }
 
     public CommandResponse dispatch(String input){
@@ -40,6 +38,10 @@ public class CommandDispatcher {
 
         BasicCommand cmd = commands.get(commandName);
         if (cmd != null) return cmd.execute(cache, args);
+
+        if (commandName.equals("PUBSUB")){
+            commandName = args[0].toUpperCase() + " " + args[1].toUpperCase();
+        }
 
         PubSubCommand psCmd = pubSubCommands.get(commandName);
         if (psCmd != null) return psCmd.execute(broker, args);

@@ -1,5 +1,6 @@
 package commands;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,6 +26,10 @@ public class CommandResponse {
 
     public static CommandResponse success(String result, String value) {
         return new CommandResponse(ResponseType.NORMAL,true, result, value);
+    }
+
+    public static CommandResponse success(HashMap<String, Integer> map) {
+        return new CommandResponse(ResponseType.NORMAL,true, map.toString(), null);
     }
 
     public static CommandResponse error(String message) {

@@ -3,7 +3,7 @@ package pubsub;
 import Server.CacheServer;
 import utils.LoggerFactory;
 
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -58,7 +58,6 @@ public class PubSubBroker {
         return numChannels;
     }
 
-
     public int publish(String channel, String payload) {
         var subs = channelToSubscribers.get(channel);
         if (!subs.isEmpty())
@@ -68,6 +67,22 @@ public class PubSubBroker {
                 logger.info("PUBLISH %s to channel %s".formatted(message.payload(), message.channel()));
             }
         return subs.size();
+    }
+
+    public HashMap<String, Integer> numSub(List<String> channels){
+        List<String> keys;
+        if (channels.isEmpty())
+            keys = List.copyOf(channelToSubscribers.keySet());
+        else
+            keys = channels;
+        HashMap<String, Integer> numSub = new HashMap<>();
+        for (String channel : keys){
+            var entry = channelToSubscribers.get(channel);
+            if (entry != null){
+                numSub.put(channel, entry.size());
+            }
+        }
+        return numSub;
     }
 
     public String poll(String clientId, int timeout) throws InterruptedException {
