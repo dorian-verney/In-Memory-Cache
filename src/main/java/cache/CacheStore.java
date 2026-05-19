@@ -2,6 +2,7 @@ package cache;
 
 import evictionPolicy.EvictionPolicy;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -114,6 +115,11 @@ public class CacheStore implements Servable {
         res.setExpire(true);
         res.setTTL(ttlSec);
         return String.valueOf(ttlSec);
+    }
+
+    @Override
+    public synchronized List<String> keys(){
+        return new ArrayList<>(cache.keySet());
     }
 
     // -------------------------------------------------------------------------

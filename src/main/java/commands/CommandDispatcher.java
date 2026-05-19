@@ -23,6 +23,7 @@ public class CommandDispatcher {
         commands.put("SET", new SetCommand());
         commands.put("GET", new GetCommand());
         commands.put("DEL", new DeleteCommand());
+        commands.put("KEYS", new KeysCommand());
         commands.put("TTL", new TTLCommand());
         commands.put("EXPIRE", new ExpireCommand());
 
