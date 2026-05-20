@@ -1,13 +1,11 @@
-package Server;
+package server;
 
-import Context.client.SessionContext;
-import Context.server.ConnectionContext;
+import context.client.SessionContext;
+import context.server.ConnectionContext;
 import cache.CacheStore;
 import commands.CommandDispatcher;
-import commands.CommandResponse;
-import commands.ResponseType;
-import evictionPolicy.ExpirationCleaner;
-import evictionPolicy.LRUPolicy;
+import cache.evictionPolicy.ExpirationCleaner;
+import cache.evictionPolicy.LRUPolicy;
 import pubsub.PubSubBroker;
 import utils.LoggerFactory;
 

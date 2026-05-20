@@ -1,7 +1,7 @@
-package Server;
+package server;
 
-import Context.client.SessionContext;
-import utils.LoggerFactory;
+import context.client.SessionContext;
+import io.ClientIO;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -12,16 +12,14 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.Scanner;
-import java.util.logging.Logger;
 
 public class ClientHandler {
-    private static final Logger logger = LoggerFactory.create(ClientHandler.class, "clientHandler.log");
 
     private SessionContext clientContext;
-    private final Scanner scanner;
+    private final ClientIO clientIO;
 
-    public ClientHandler(Scanner scanner){
-        this.scanner = scanner;
+    public ClientHandler(ClientIO clientIO){
+        this.clientIO = clientIO;
     }
 
 
@@ -32,7 +30,7 @@ public class ClientHandler {
             IO.println("Connection established with port:" + port);
 
             var info = socket.getLocalAddress().getHostAddress()+":"+socket.getLocalPort();
-            clientContext = new SessionContext(reader, writer, scanner, info);
+            clientContext = new SessionContext(reader, writer, clientIO, info);
             clientContext.handle();
 
         } catch (IOException e) {
@@ -50,7 +48,7 @@ public class ClientHandler {
             String userIn;
             while (true) {
                 buffer.clear();
-                userIn = scanner.nextLine();
+                userIn = clientIO.readInput();
                 if (userIn.equalsIgnoreCase("q")) {
                     buffer.clear().put("QUIT".getBytes()).flip();
                     break;
@@ -68,7 +66,8 @@ public class ClientHandler {
                     if (byteRead > 0) {
                         buffer.flip();
                         var data = new String(buffer.array(), buffer.position(), byteRead);
-                        IO.println("data = " + data);
+//                        IO.println("data = " + data);
+                        clientIO.writeOutput("data = " + data);
                     }
                 }
             }

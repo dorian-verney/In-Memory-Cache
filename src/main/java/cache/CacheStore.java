@@ -1,6 +1,6 @@
 package cache;
 
-import evictionPolicy.EvictionPolicy;
+import cache.evictionPolicy.EvictionPolicy;
 
 import java.util.ArrayList;
 import java.util.List;

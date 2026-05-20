@@ -1,6 +1,6 @@
-package Context.server;
+package context.server;
 
-import Context.State;
+import context.State;
 import commands.CommandResponse;
 import commands.ResponseType;
 import utils.LoggerFactory;

@@ -1,23 +1,31 @@
-package Server.ClientStrategy;
+package server.clientStrategy;
 
-import Server.CacheServer;
+import server.CacheServer;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.concurrent.Executors;
 
-public class ThreadPerConnectionServer extends CacheServer
+public class ThreadPoolServer extends CacheServer
 {
+    private final int numThreads;
+
+    public ThreadPoolServer(int numThreads) {
+        super();
+        this.numThreads = numThreads;
+    }
 
     @Override
     public void start(int port) {
-        try (var serverSocket = new ServerSocket(port);) {
+        try (var executor = Executors.newFixedThreadPool(this.numThreads);
+             var serverSocket = new ServerSocket(port);) {
             IO.println("Server listening to: " + port);
             while (running) {
                 var clientSocket = serverSocket.accept(); // block until connexion
                 var clientInfo = clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort();
                 logger.info("CONNECTED: " + clientInfo);
 
-                new Thread(() -> handleNewConnection(clientSocket)).start();
+                executor.execute(() -> handleNewConnection(clientSocket));
             }
         } catch (IOException e) {
             if (running) {
@@ -27,10 +35,6 @@ public class ThreadPerConnectionServer extends CacheServer
         }
     }
 
-
-    private void handlingClient(){
-
-    }
     @Override
     public void stop() {
         running = false;
@@ -41,5 +45,4 @@ public class ThreadPerConnectionServer extends CacheServer
             throw new RuntimeException(e);
         }
     }
-
 }

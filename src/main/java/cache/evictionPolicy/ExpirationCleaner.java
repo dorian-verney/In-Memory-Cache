@@ -1,4 +1,4 @@
-package evictionPolicy;
+package cache.evictionPolicy;
 
 import cache.CacheStore;
 

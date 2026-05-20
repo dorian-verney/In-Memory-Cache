@@ -1,6 +1,6 @@
-package Server.ClientStrategy;
+package server.clientStrategy;
 
-import Server.CacheServer;
+import server.CacheServer;
 import commands.CommandResponse;
 
 import java.io.IOException;
@@ -13,7 +13,6 @@ import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 
 public class NIOSelectorServer extends CacheServer

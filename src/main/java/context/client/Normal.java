@@ -1,6 +1,6 @@
-package Context.client;
+package context.client;
 
-import Context.State;
+import context.State;
 
 import java.io.IOException;
 
@@ -17,7 +17,7 @@ public class Normal implements State {
         String userIn;
         String serverRes;
         while (true) {
-            userIn = context.getScanner().nextLine();
+            userIn = context.getClientIO().readInput();
             if (userIn.equalsIgnoreCase("q")) {
                 context.getWriter().println("QUIT");
                 break;
@@ -32,7 +32,7 @@ public class Normal implements State {
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-                IO.println("response : " + serverRes);
+                context.getClientIO().writeOutput("Response : " + serverRes);
 
                 // Transition to state Listening
                 if (serverRes != null && serverRes.startsWith("subscribed")) {

@@ -1,4 +1,4 @@
-package Context.client;
+package context.client;
 
 public enum ClientMode {
     NORMAL,

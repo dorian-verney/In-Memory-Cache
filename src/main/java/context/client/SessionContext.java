@@ -1,10 +1,13 @@
-package Context.client;
+package context.client;
 
-import Context.State;
+import context.State;
+import io.ClientIO;
 
 import java.io.BufferedReader;
 import java.io.PrintWriter;
 import java.util.Scanner;
+
+
 
 public class SessionContext {
     private static final ThreadLocal<String> clientId = new ThreadLocal<>();
@@ -12,18 +15,18 @@ public class SessionContext {
 
     private State state;
 
-    private final Scanner scanner;
+    private final ClientIO clientIO;
     private final BufferedReader reader;
     private final PrintWriter writer;
 
 
     public SessionContext(BufferedReader reader,
                           PrintWriter writer,
-                          Scanner scanner,
+                          ClientIO clientIO,
                           String clientInfo) {
         this.reader     = reader;
         this.writer     = writer;
-        this.scanner    = scanner;
+        this.clientIO   = clientIO;
         this.clientInfo = clientInfo;
         this.state      = new Normal(this);
     }
@@ -36,8 +39,8 @@ public class SessionContext {
         state.handle();
     }
 
-    public Scanner getScanner(){
-        return scanner;
+    public ClientIO getClientIO(){
+        return clientIO;
     }
 
     public PrintWriter getWriter(){

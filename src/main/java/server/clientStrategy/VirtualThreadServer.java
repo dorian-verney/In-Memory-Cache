@@ -1,27 +1,21 @@
-package Server.ClientStrategy;
+package server.clientStrategy;
 
-import Server.CacheServer;
+import server.CacheServer;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.concurrent.Executors;
 
-public class ThreadPoolServer extends CacheServer
+public class VirtualThreadServer extends CacheServer
 {
-    private final int numThreads;
-
-    public ThreadPoolServer(int numThreads) {
-        super();
-        this.numThreads = numThreads;
-    }
-
     @Override
     public void start(int port) {
-        try (var executor = Executors.newFixedThreadPool(this.numThreads);
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor();
              var serverSocket = new ServerSocket(port);) {
             IO.println("Server listening to: " + port);
             while (running) {
-                var clientSocket = serverSocket.accept(); // block until connexion
+                Socket clientSocket = serverSocket.accept();
                 var clientInfo = clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort();
                 logger.info("CONNECTED: " + clientInfo);
 

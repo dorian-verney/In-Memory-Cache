@@ -1,8 +1,7 @@
-package Context.server;
+package context.server;
 
-import Context.State;
-import Context.server.Normal;
-import Context.client.SessionContext;
+import context.State;
+import context.client.SessionContext;
 import commands.CommandResponse;
 import commands.ResponseType;
 import utils.LoggerFactory;
@@ -56,7 +55,7 @@ public class Subscribe implements State {
                     }
                 }
             }
-        } catch (InterruptedException | IOException e){
+        } catch (IOException e){
             throw new RuntimeException(e);
         }
     }

@@ -1,6 +1,6 @@
-package Context.client;
+package context.client;
 
-import Context.State;
+import context.State;
 import java.io.IOException;
 import java.util.Set;
 
@@ -24,8 +24,9 @@ public class Listening implements State {
                     if (incoming.equalsIgnoreCase("unsubscribed")){
                         break;
                     }
-                    IO.println("Response : " + incoming);
-//                    if (allowedCmd.contains(incoming.toUpperCase())) break;
+                    context.getClientIO().writeOutput("Response : " + incoming);
+
+                    //                    if (allowedCmd.contains(incoming.toUpperCase())) break;
                 }
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -34,7 +35,7 @@ public class Listening implements State {
 
         // thread principal read keyboard
         while (listenerThread.isAlive()) {
-            String userIn = context.getScanner().nextLine();
+            String userIn = context.getClientIO().readInput();
             context.getWriter().println(userIn);
         }
 

@@ -1,4 +1,4 @@
-package Context;
+package context;
 
 public class ClientContext {
     private static final ThreadLocal<String> clientId = new ThreadLocal<>();
