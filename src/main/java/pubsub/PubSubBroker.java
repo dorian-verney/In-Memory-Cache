@@ -20,58 +20,68 @@ public class PubSubBroker {
         channelToSubscribers = new ConcurrentHashMap<>();
     }
 
+    // thread safe
     // return the number of channel subscribed
     public int subscribe(String channel, String clientId){
-        subscribers.computeIfAbsent(clientId, Subscriber::new)
-                .subscribe(channel);
+        var sub = subscribers.computeIfAbsent(clientId, Subscriber::new);
 
-        channelToSubscribers.computeIfAbsent(channel, c -> ConcurrentHashMap.newKeySet())
-                .add(subscribers.get(clientId));
+        sub.subscribe(channel);
+
+        // ATOMIC
+        channelToSubscribers.computeIfAbsent(channel,
+                        c -> ConcurrentHashMap.newKeySet()).add(sub);
 
         logger.info("%s SUBSCRIBE to channel %s".formatted(clientId, channel));
-        return subscribers.get(clientId).getChannels().size();
+        return sub.getChannels().size();
     }
 
     // return the number of left channel subscribed
     public int unSubscribe(String channel, String clientId){
-        subscribers.get(clientId).unSubscribe(channel);
+        var sub = subscribers.get(clientId);
+        if (sub == null) return 0;
 
-        var subs = channelToSubscribers.get(channel);
-        if (subs != null) subs.remove(subscribers.get(clientId));
+        sub.unSubscribe(channel);
+        if (!sub.isActive()) subscribers.remove(clientId);
 
-        if (channelToSubscribers.get(channel).isEmpty())
-            channelToSubscribers.remove(channel);
+        // ATOMIC
+        channelToSubscribers.computeIfPresent(channel, (k, subs) -> {
+            subs.remove(sub);
+            return subs.isEmpty() ? null : subs;
+        });
 
         logger.info("%s UNSUBSCRIBE to channel %s".formatted(clientId, channel));
-        return subscribers.get(clientId).getChannels().size();
+        return sub.getChannels().size();
     }
 
     public int unSubscribeAll(String clientId){
-        var sub = subscribers.get(clientId);
-        int numChannels = sub.getChannels().size();
+        var sub = subscribers.remove(clientId); // atomic
+        if (sub == null) return 0;
+
         var channels = sub.getChannels();
-        for (String channel : channels){
-            channelToSubscribers.get(channel).remove(sub);
-            if (channelToSubscribers.get(channel).isEmpty())
-                channelToSubscribers.remove(channel);
+        for (String channel : channels) {
+            channelToSubscribers.computeIfPresent(channel, (k, subs) -> {
+                subs.remove(sub);
+                return subs.isEmpty() ? null : subs;
+            });
         }
         sub.unSubscriberAll();
-        subscribers.remove(clientId);
-
 
         logger.info("%s UNSUBSCRIBE to all its channels %s".formatted(clientId, channels));
-
-        return numChannels;
+        return channels.size();
     }
 
     public int publish(String channel, String payload) {
         var subs = channelToSubscribers.get(channel);
-        if (!subs.isEmpty())
-            for (Subscriber sub : subs){
-                var message = new Message(channel, payload);
-                sub.enqueue(message);
-                logger.info("PUBLISH %s to channel %s".formatted(message.payload(), message.channel()));
+        if (subs == null || subs.isEmpty()) return 0;
+
+        for (Subscriber sub : subs){
+            var msg = new Message(channel, payload);
+            if (sub.isActive()) {
+                if (!sub.enqueue(msg))
+                    logger.warning("Queue full for subscriber %s, message dropped".formatted(sub.getId()));
             }
+            logger.info("PUBLISH %s to channel %s".formatted(msg.payload(), msg.channel()));
+        }
         return subs.size();
     }
 
@@ -95,9 +105,11 @@ public class PubSubBroker {
         return numSub;
     }
 
-    public String poll(String clientId, int timeout) throws InterruptedException {
+    public String poll(String clientId, int timeout) {
         logger.info("POLLING %s queue".formatted(clientId));
-        var msg = subscribers.get(clientId).poll(timeout, TimeUnit.MILLISECONDS);
+        var sub = subscribers.get(clientId);
+        if (sub == null) return null;
+        var msg = sub.poll(timeout, TimeUnit.MILLISECONDS);
         if (msg != null) {
             logger.info("MESSAGE from polling %s : %s".formatted(clientId, msg.payload()));
             return msg.toString();

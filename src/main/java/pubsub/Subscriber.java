@@ -5,6 +5,7 @@ import utils.LoggerFactory;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -20,7 +21,7 @@ public class Subscriber implements ISubscriber {
 
     public Subscriber(String clientId){
         id = clientId;
-        channels = new HashSet<>();
+        channels = ConcurrentHashMap.newKeySet();
     }
 
     public void subscribe(String channel){
@@ -32,27 +33,34 @@ public class Subscriber implements ISubscriber {
     }
 
     public void unSubscriberAll(){
-        channels.removeAll(channels);
+        channels.clear();
     }
 
     public String getId(){
         return id;
     }
 
+    // snapshot
+    // avoiding iterating over channels while another thread modifies the data struc channels
     public Set<String> getChannels(){
-        return channels;
+        return Set.copyOf(channels);
+    }
+
+    public boolean isActive() {
+        return !channels.isEmpty();
     }
 
     public Message poll(int timeout, TimeUnit unit) {
         try {
             return queue.poll(timeout, unit);
         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            Thread.currentThread().interrupt();
+            return null;
         }
     }
 
     @Override
-    public void enqueue(Message msg) {
-        var added = queue.offer(msg);
+    public boolean enqueue(Message msg) {
+        return queue.offer(msg);
     }
 }

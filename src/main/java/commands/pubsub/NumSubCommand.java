@@ -1,6 +1,5 @@
 package commands.pubsub;
 
-import Context.client.SessionContext;
 import commands.CommandResponse;
 import pubsub.PubSubBroker;
 
