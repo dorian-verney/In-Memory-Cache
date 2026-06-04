@@ -31,8 +31,10 @@ public class Normal implements State {
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-                if (in == null || in.equals("QUIT")) break listening;
-
+                if (in == null || in.equals("QUIT")) {
+                    context.getWriter().println("QUIT");
+                    break listening;
+                }
                 sb.append(in.replace(";", ""));
                 IO.println(sb);
             } while (!in.endsWith(";"));
@@ -56,5 +58,7 @@ public class Normal implements State {
                 }
             }
         }
+
+        IO.println("il a fait QUIT");
     }
 }

@@ -9,12 +9,16 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.Scanner;
 
 public class ClientHandler {
 
+    private Socket socket;
+    private BufferedReader reader;
+    private PrintWriter writer;
     private SessionContext clientContext;
     private final ClientIO clientIO;
 
@@ -24,19 +28,54 @@ public class ClientHandler {
 
 
     public void start(int port){
-        try (var socket = new Socket("localhost", port);
-             var reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-             var writer = new PrintWriter(socket.getOutputStream(), true)) {
-            IO.println("Connection established with port:" + port);
+        try {
+            var socket = new Socket();
+            socket.setReuseAddress(true);
+            socket.connect(new InetSocketAddress("127.0.0.1", port));
 
-            var info = socket.getLocalAddress().getHostAddress()+":"+socket.getLocalPort();
-            clientContext = new SessionContext(reader, writer, clientIO, info);
-            clientContext.handle();
+            try (socket;
+                 var reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                 var writer = new PrintWriter(socket.getOutputStream(), true)) {
 
+                //IO.println("Connection established with port:" + port);
+                var info = socket.getLocalAddress().getHostAddress() + ":" + socket.getLocalPort();
+                clientContext = new SessionContext(reader, writer, clientIO, info);
+                clientContext.handle();
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
+
+    public void connect(int port) throws IOException {
+        socket = new Socket();
+        socket.setReuseAddress(true);
+        socket.connect(new InetSocketAddress("127.0.0.1", port));
+        reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        writer = new PrintWriter(socket.getOutputStream(), true);
+
+        IO.println("Connection established with port:" + port);
+        var info = socket.getLocalAddress().getHostAddress() + ":" + socket.getLocalPort();
+        clientContext = new SessionContext(reader, writer, clientIO, info);
+        clientContext.handle();
+
+    }
+
+    public void sendCommand(String cmd) {
+        clientContext.getWriter().println(cmd);
+    }
+
+    public String readResponse() throws IOException {
+        return clientContext.getReader().readLine();
+    }
+
+    public void disconnect() throws IOException {
+        writer.println("QUIT");
+        socket.close();
+    }
+
+
+    /////// NIO //////
 
 
     public void startNIO(int port){

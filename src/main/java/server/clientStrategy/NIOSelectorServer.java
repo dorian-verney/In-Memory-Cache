@@ -1,3 +1,4 @@
+/*
 package server.clientStrategy;
 
 import server.CacheServer;
@@ -19,15 +20,14 @@ public class NIOSelectorServer extends CacheServer
 {
     private final Set<SelectionKey> inProgress = ConcurrentHashMap.newKeySet();
 
-    public NIOSelectorServer()
-    {
-        super();
+    public NIOSelectorServer(String host, int port) {
+        super(host, port);
     }
 
     record ClientState(ByteBuffer buffer, StringBuilder accumulator) {}
 
     @Override
-    public void start(int port) {
+    public void start() {
         try (var serverChannel = ServerSocketChannel.open();
              var selector = Selector.open();
              var workers = Executors.newFixedThreadPool(2);) {
@@ -155,3 +155,4 @@ public class NIOSelectorServer extends CacheServer
 
     }
 }
+*/

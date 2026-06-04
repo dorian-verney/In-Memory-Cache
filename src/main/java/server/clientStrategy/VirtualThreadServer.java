@@ -1,3 +1,4 @@
+/*
 package server.clientStrategy;
 
 import server.CacheServer;
@@ -7,10 +8,14 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.Executors;
 
-public class VirtualThreadServer extends CacheServer
-{
+public class VirtualThreadServer extends CacheServer {
+
+    public VirtualThreadServer(String host, int port){
+        super(host, port);
+    }
+
     @Override
-    public void start(int port) {
+    public void start() {
         try (var executor = Executors.newVirtualThreadPerTaskExecutor();
              var serverSocket = new ServerSocket(port);) {
             IO.println("Server listening to: " + port);
@@ -39,4 +44,4 @@ public class VirtualThreadServer extends CacheServer
             throw new RuntimeException(e);
         }
     }
-}
+}*/

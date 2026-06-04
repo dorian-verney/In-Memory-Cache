@@ -1,16 +1,25 @@
+/*
 package server.clientStrategy;
 
 import server.CacheServer;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 
 public class ThreadPerConnectionServer extends CacheServer
 {
 
+    public ThreadPerConnectionServer(String host, int port){
+        super(host, port);
+    }
+
     @Override
-    public void start(int port) {
-        try (var serverSocket = new ServerSocket(port);) {
+    public void start() {
+        try (var serverSocket = new ServerSocket()) {
+            serverSocket.setReuseAddress(true);
+            serverSocket.bind(new InetSocketAddress("127.0.0.1", port));
             IO.println("Server listening to: " + port);
             while (running) {
                 var clientSocket = serverSocket.accept(); // block until connexion
@@ -27,7 +36,6 @@ public class ThreadPerConnectionServer extends CacheServer
         }
     }
 
-
     private void handlingClient(){
 
     }
@@ -43,3 +51,4 @@ public class ThreadPerConnectionServer extends CacheServer
     }
 
 }
+*/
